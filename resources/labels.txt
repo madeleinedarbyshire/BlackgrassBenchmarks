@@ -1,2 +1,2 @@
-{0: 'blackgrass',
- 1: 'no_blackgrass'}
+{0: 'no_blackgrass',
+ 1: 'blackgrass'}

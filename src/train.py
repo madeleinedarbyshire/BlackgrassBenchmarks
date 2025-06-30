@@ -4,6 +4,7 @@ import argparse
 import copy
 import math
 import numpy as np
+import os
 import sys
 import time
 import torch
@@ -13,8 +14,6 @@ import torch.backends.cudnn as cudnn
 
 from model import full_precision_model
 from utils import load_data
-
-cudnn.benchmark = True
 
 def powerset(s):
     x = len(s)
@@ -88,7 +87,7 @@ def train_model(model, criterion, optimizer, scheduler, dataloaders, device, mod
     print(f'Training complete in {time_elapsed // 60:.0f}m {time_elapsed % 60:.0f}s')
     print(f'Best val Acc: {best_acc:4f}')
     model_wts = copy.deepcopy(model.state_dict())
-    torch.save(model_wts, model_filename + '_last.pth')
+    # torch.save(model_wts, model_filename + '_last.pth')
     model.load_state_dict(model_wts)
     return model
 
@@ -106,7 +105,8 @@ def setup_and_train_model(batch_size, channels, img_root, num_epochs, resolution
 
     spectrum_name = ''.join([c[0]+c[-1] for c in channels])
     train_percentage_name = str(math.floor(train_percentage))
-    txt_filename = f'out/121023_{train_percentage_name}/{model_name}_{num_epochs}_{resolution}_{spectrum_name}_{run_index}.txt'
+    os.makedirs(f'out/121023_{train_percentage_name}', exist_ok=True)
+    txt_filename = f'out/121023_{train_percentage_name}/{model_name}_{num_epochs}_{resolution}_{spectrum_name}_{run_index}.log'
     model_filename = f'models/121023_{train_percentage_name}/{model_name}_{num_epochs}_{resolution}_{spectrum_name}_{run_index}'
     with open(txt_filename, 'w') as sys.stdout:
         dataloaders = load_data(resolution, channels, ['train', 'val'], f'resources/train_{train_percentage_name}_121023.csv', path=img_root, class_path='resources/labels.txt', batch_size=batch_size)

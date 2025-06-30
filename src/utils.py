@@ -1,5 +1,5 @@
 from __future__ import print_function, division
-
+import albumentations as A
 import cv2
 import numpy as np
 import os
@@ -18,9 +18,9 @@ def multispectral_image_loader(img_paths):
         for i, path in enumerate(img_paths):
             band = cv2.imread(path, cv2.IMREAD_GRAYSCALE).astype('float32') / 255.0
             img.append(band)
-    except:
-        print('Could not load:', path)
-        return
+    except Exception as e:
+        print('Could not load:', path, e)
+        return torch.zeros((len(img_paths), 512, 512))
 
     return torch.from_numpy(np.array(img))
 
@@ -64,7 +64,7 @@ class PandasDataset(datasets.ImageFolder):
             classes = [class_dict[i] for i in range(len(class_dict))]
             class_to_idx = {class_name : i for i, class_name in enumerate(classes)}
         return classes, class_to_idx
-
+    
     def make_dataset(
         self,
         directory: str,
@@ -79,21 +79,33 @@ class PandasDataset(datasets.ImageFolder):
         Note: The class_to_idx parameter is here optional and will use the logic of the ``find_classes`` function
         by default.
         """
+        with open("ignore.txt", "r", encoding="utf-8") as file:
+            ignore = [line.strip() for line in file]
         instances = []
+        crop = {}
+        season = {}
+        class_name = {}
         for target_class in sorted(class_to_idx.keys()):
             class_index = class_to_idx[target_class]
             class_metadata = self.metadata[self.metadata['binary_class'] == target_class].copy()
             class_metadata.sort_values(by=['name'], inplace=True)
             for _, row in class_metadata.iterrows():
-                if self.test_device == True:
-                    filename_prefix = os.path.join(directory, row['binary_class'], row['field'] + '_' + row['date'] + '_' + row['class'] + '_')
-                    paths = [filename_prefix + row[band] for band in self.channels]
-                else:
-                    target_directory = os.path.join(directory, row['field'], row['date'], row['class'])
-                    paths = [os.path.join(target_directory, i) for i in [row[x] for x in self.channels]]            
-                item = paths, class_index
-                instances.append(item)
+                folder = directory + row['path'].split('../data')[1]
+                # filename_prefix = os.path.join(directory, row['binary_class'], row['field'] + '_' + row['date'] + '_' + row['class'] + '_')
+                paths = [folder + '/' + row[band] for band in self.channels]
+                if not any(item in paths for item in ignore):       
+                    item = paths, class_index
+                    instances.append(item)
+                    crop[row['crop']] = crop.get(row['crop'], 0) + 1
+                    season[row['season']] = season.get(row['season'], 0) + 1
+                    class_name[row['binary_class']] = class_name.get(row['binary_class'], 0) + 1
 
+        print('binary class')
+        print(class_name)
+        print('crop')
+        print(crop)
+        print('season')
+        print(season)
         return instances
 
 def generate_data_transforms(resolution, channels):
@@ -101,6 +113,12 @@ def generate_data_transforms(resolution, channels):
     stds = {'red': 0.1095, 'green': 0.1281, 'blue': 0.1133, 'nir' : 0.1768, 'red_edge' : 0.1414}
     center_crop = transforms.CenterCrop(512)
     normalize = transforms.Normalize([means[b] for b in channels], [stds[b] for b in channels])
+    albumentations_transform = A.Compose([
+                    A.HorizontalFlip(p=0.5),
+                    A.RandomRotate90(p=0.5),
+                    A.GaussianBlur(sigma_limit=(2, 10), blur_limit=(5, 45), p=0.5),
+                    A.RandomGamma(gamma_limit=(40, 180), p=0.5)
+                ])
     if resolution == 512:
         train = transforms.Compose([center_crop, transforms.RandomHorizontalFlip(), normalize])
         val = transforms.Compose([center_crop, normalize])
@@ -109,7 +127,7 @@ def generate_data_transforms(resolution, channels):
         val = transforms.Compose([center_crop, transforms.Resize(resolution), normalize])
     return {'train' : train, 'val' : val, 'test': val, 'cal':val}
 
-def load_data(resolution, channels, dataset_types, metadata_file, path='../data', class_path='resources/labels.txt', batch_size=64, shuffle=True, num_workers=2, pin_memory=True, prefetch_factor=4, test_device=False):
+def load_data(resolution, channels, dataset_types, metadata_file, path='../data', class_path='resources/labels.txt', batch_size=64, shuffle=True, num_workers=24, pin_memory=True, prefetch_factor=4, test_device=False):
     data_dir = path
     metadata = pd.read_csv(metadata_file)
     print('Loading datasets...')

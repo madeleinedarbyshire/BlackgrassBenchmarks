@@ -1,5 +1,7 @@
 import argparse
+import csv
 import math
+import os
 import time
 import torch
 import torch.nn as nn
@@ -14,7 +16,7 @@ def powerset(s):
     for i in range(1, 1 << x):
         yield [ss for mask, ss in zip(masks, s) if i & mask]
 
-def test(model, dataloader, device, channels, resolution, filename, model_name, batch_size=1):
+def test(model, dataloader, device, channels, resolution, filename, model_name, train_percentage, run_index, batch_size=1, field=None):
 
     spectrum_name = ''.join([c[0]+c[-1] for c in channels])
 
@@ -39,11 +41,24 @@ def test(model, dataloader, device, channels, resolution, filename, model_name, 
     bg_recall = tp / (tp + fn)
     nbg_precision = tn / (tn + fn)
     nbg_recall = tn / (tp + fn)
-
     mcc = (tp * tn - fp * fn) / math.sqrt((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn))
 
+    print('Acc:', acc, '\nPrecision:', bg_precision, '\nRecall', bg_recall, '\nMCC', mcc)
 
     inference_speed = 1 / (running_time / total)
+
+    new_row = [''.join([c[0]+c[-1] for c in channels]), acc, run_index]
+    header = ['Model', 'Field', 'Run Index', 'Accuracy']
+
+    # Check if the file is empty or doesn't exist
+    file_is_empty = not os.path.exists(file_path) or os.stat(file_path).st_size == 0
+
+    with open(file_path, 'a', newline='') as file:
+        writer = csv.writer(file)
+        if file_is_empty:
+            writer.writerow(header)
+        writer.writerow(new_row)
+
     file = open(filename, 'a')
     file.write(f'Accuracy: {acc:.4f}\n')
     file.write(f'BG Pr: {bg_precision:.4f}\n')
@@ -54,7 +69,7 @@ def test(model, dataloader, device, channels, resolution, filename, model_name, 
     file.write(f'-------------------------------------------\n')
     file.close()
 
-def main(img_root, device, model_name, train_percentage, field, run_index=None):
+def main(img_root, channels, device, model_name, train_percentage, field, run_index=None):
     filename = f'results.txt'
     print('Writing results to file:', filename)
     file = open(filename, 'a')
@@ -66,13 +81,13 @@ def main(img_root, device, model_name, train_percentage, field, run_index=None):
 
     batch_size = 2
     resolution = 512
-    channels = ['red', 'green', 'blue', 'nir', 'red_edge']
+    # channels = ['red', 'green', 'blue', 'nir', 'red_edge']
 
     spectrum_name = ''.join([c[0]+c[-1] for c in channels])
     if field:
         dataloaders = load_data(resolution, channels, ['test'], f'resources/test_field{field}.csv', path=img_root, batch_size=batch_size, test_device=False)
     else:
-        dataloaders = load_data(resolution, channels, ['test'], 'resources/dataset_121023.csv', path=img_root, batch_size=batch_size, test_device=False)
+        dataloaders = load_data(resolution, channels, ['test'], 'resources/train_100_121023.csv', path=img_root, batch_size=batch_size, test_device=False)
 
     if run_index:
         model_path = f'models/121023_{train_percentage}/{model_name}_50_{resolution}_{spectrum_name}_{run_index}_best.pth'
@@ -84,8 +99,8 @@ def main(img_root, device, model_name, train_percentage, field, run_index=None):
     model = model.to(device)
     model.eval()
 
-    
-    test(model, dataloaders['test'], device, channels, resolution, filename, model_name, batch_size)
+    print('Results for ', model_name)
+    test(model, dataloaders['test'], device, channels, resolution, filename, model_name, train_percentage, run_index, batch_size, field)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -99,4 +114,4 @@ if __name__ == "__main__":
     parser.add_argument('--field', type=str)
     parser.add_argument('--run-index', type=int)
     args = parser.parse_args()
-    main(args.img_root, args.device, args.model_name, args.train_percentage, args.field, args.run_index)
+    main(args.img_root, args.channels, args.device, args.model_name, args.train_percentage, args.field, args.run_index)
