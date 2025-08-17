@@ -1,7 +1,7 @@
 # Blackgrass Benchmarks
 
 ## Dataset
-Our blackgrass dataset containers ground images of blackgrass in wheat and barley crops. This dataset will be made publically available soon. In the meantime, please contact me for access to the dataset.
+Our blackgrass dataset is available [here](https://lcas.lincoln.ac.uk/wp/research/data-sets-software/eastern-england-blackgrass-dataset/) .
 
 <div>
   <img src="/resources/BG_sparse_annotated.jpg" width="300" height="300" />
