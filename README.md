@@ -19,10 +19,13 @@ To test, run `python test.py` with any options.
 
 ## Paper
 ```
-@article{darbyshire2024multispectral,
-  title={Multispectral Fine-Grained Classification of Blackgrass in Wheat and Barley Crops},
+@article{darbyshire2025multispectral,
+  title={Multispectral fine-grained classification of blackgrass in wheat and barley crops},
   author={Darbyshire, Madeleine and Coutts, Shaun and Hammond, Eleanor and Gokbudak, Fazilet and Oztireli, Cengiz and Bosilj, Petra and Gao, Junfeng and Sklar, Elizabeth and Parsons, Simon},
-  journal={arXiv preprint arXiv:2405.02218},
-  year={2024}
+  journal={Computers and Electronics in Agriculture},
+  volume={237},
+  pages={110484},
+  year={2025},
+  publisher={Elsevier}
 }
 ```
